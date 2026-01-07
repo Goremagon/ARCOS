@@ -1,0 +1,38 @@
+services:
+  # Service 1: The Rust Brain (Risk & Reporting)
+  maestro:
+    build:
+      context: .
+      dockerfile: Dockerfile.maestro
+    volumes:
+      # FIX: Use ${PWD} for explicit Windows path mapping
+      - ${PWD}/workspace:/app/workspace
+    depends_on:
+      - agent
+
+  # Service 2: The Python Worker (Data & ML)
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    user: root 
+    volumes:
+      - ${PWD}/workspace:/app/workspace
+    working_dir: /app
+    # NEW: Allow Agent to see Windows Localhost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Service 3: The Dashboard (UI)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent 
+    user: root
+    volumes:
+      # FIX: Use ${PWD} so it reads from D:\Arcos\workspace
+      - ${PWD}/workspace:/app/workspace
+      - ${PWD}/dashboard.py:/app/dashboard.py
+    command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"

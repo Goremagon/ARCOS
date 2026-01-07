@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ArcosMessage xmlns="http://arcos.ai/core">
+    <Header>
+        <MessageID>SIG-34738</MessageID>
+        <Sender>SIGNAL_ENGINE</Sender>
+        <Timestamp>2025-12-10T03:39:13.803972</Timestamp>
+    </Header>
+    <Body>
+        <Ticker>TSLA</Ticker>
+        <Signal>WAIT</Signal>
+        <Probability>0.5149990157096553</Probability>
+        <Uncertainty>0.037913562490393585</Uncertainty>
+        <SampleSize>201</SampleSize>
+        <Rationale>ML Model is uncertain (0.51). No clear edge.</Rationale>
+        <Signature>ARCOS_v0.5_Model</Signature>
+    </Body>
+</ArcosMessage>

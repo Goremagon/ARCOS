@@ -1,0 +1,14 @@
+# 1. Use a Rust image to build the app
+FROM rust:latest
+
+# 2. Create a folder inside the container
+WORKDIR /app
+
+# 3. Copy your project files into the container
+COPY . .
+
+# 4. Build the release version (The Heavy Lifting)
+RUN cargo build --release
+
+# 5. Run the specific executable we built
+CMD ["./target/release/arcos-core"]
