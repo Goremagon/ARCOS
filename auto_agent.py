@@ -3,6 +3,10 @@ import datetime
 import random
 import os
 import html
+import json
+import threading
+import redis
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import data_fetcher
 import signal_engine
 import social_scraper 
@@ -12,6 +16,60 @@ import discovery
 # --- CONFIGURATION ---
 REPORT_INTERVAL = 3600  # Send summary every 60 minutes
 MIN_BATCH_SIZE = 1      
+
+# --- REDIS SETUP ---
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+try:
+    r = redis.from_url(REDIS_URL, decode_responses=True)
+    print(f"   🔌 [System] Connected to Redis at {REDIS_URL}")
+except Exception as e:
+    print(f"   ❌ [System] Redis Connection Error: {e}")
+    r = None
+
+# --- HEALTH CHECK SERVER ---
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        return # Silence logs
+
+def start_health_check():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    print(f"   ❤️ [System] Health Check running on port {port}")
+    server.serve_forever()
+
+def send_signal_to_redis(message_type, ticker, signal, prob, rationale, tags=None):
+    if not r:
+        print("   ⚠️ [System] Redis unavailable, skipping signal send.")
+        return
+
+    payload = {
+        "header": {
+            "message_id": f"{message_type}-{random.randint(10000, 99999)}",
+            "sender": "ARCOS_AGENT",
+            "timestamp": datetime.datetime.now().isoformat()
+        },
+        "body": {
+            "ticker": ticker,
+            "signal": signal,
+            "probability": prob,
+            "uncertainty": 0.0,
+            "sample_size": 0,
+            "rationale": rationale,
+            "signature": "ARCOS_v3.5_REDIS",
+            "tags": tags or []
+        }
+    }
+    
+    try:
+        r.rpush("arcos_signals", json.dumps(payload))
+        print(f"   🚀 [Redis] Pushed {signal} for {ticker}")
+    except Exception as e:
+        print(f"   ❌ [Redis] Push Failed: {e}")
 
 def format_batch_report(reports):
     lines = ["🏛️ ARCOS NEURAL BRIEFING", "--------------------------------"]
@@ -25,8 +83,12 @@ def format_batch_report(reports):
 
 def run_bot_loop():
     print("---------------------------------------")
-    print("   ARCOS GRANDMASTER: v3.5 (Batched)")
+    print("   ARCOS GRANDMASTER: v3.5 (Cloud Native)")
     print("---------------------------------------")
+
+    # Start Health Check in Background
+    t = threading.Thread(target=start_health_check, daemon=True)
+    t.start()
 
     db_manager.init_db()
     
@@ -41,14 +103,26 @@ def run_bot_loop():
             # 1. Refresh Watchlist (Every 30 mins)
             if time.time() - last_scan_time > 1800 or not active_watchlist:
                 print("   🔭 [System] Scanning market for new targets...")
-                active_watchlist = discovery.get_trending_tickers()
+                # Fallback if discovery fails?
+                try:
+                    active_watchlist = discovery.get_trending_tickers()
+                except:
+                    active_watchlist = ["AAPL", "TSLA", "NVDA", "AMD"] # Fallback
                 last_scan_time = time.time()
                 print(f"   🎯 [System] Tracking {len(active_watchlist)} Assets")
+
+            if not active_watchlist:
+                time.sleep(5)
+                continue
 
             ticker = random.choice(active_watchlist)
             
             # 2. Fetch Data
-            df = data_fetcher.fetch_history(ticker)
+            try:
+                df = data_fetcher.fetch_history(ticker)
+            except:
+                continue
+
             if df.empty or len(df) < 20: 
                 continue
             
@@ -98,33 +172,16 @@ def run_bot_loop():
                 tag = "CRASH" if is_crash else "MOON"
                 print(f"   🚨 [URGENT] Sending Immediate Alert for {ticker} ({tag})")
                 
-                message_id = f"SIG-{random.randint(10000, 99999)}"
-                timestamp = datetime.datetime.now().isoformat()
-                xml_data = f"""<?xml version="1.0" encoding="UTF-8"?>
-<ArcosMessage>
-    <Header>
-        <MessageID>{message_id}</MessageID>
-        <Sender>HUNTER_KILLER_URGENT</Sender>
-        <Timestamp>{timestamp}</Timestamp>
-    </Header>
-    <Body>
-        <Ticker>{ticker}</Ticker>
-        <Signal>URGENT_{tag}</Signal>
-        <Probability>{result['prob']}</Probability>
-        <Uncertainty>0.0</Uncertainty>
-        <SampleSize>0</SampleSize>
-        <Rationale>IMMEDIATE VOLATILITY: {percent_change:+.2f}%</Rationale>
-        <Signature>ARCOS_v3.5</Signature>
-    </Body>
-</ArcosMessage>
-"""
-                with open(f"workspace/temp_{message_id}.xml", "w", encoding="utf-8") as f:
-                    f.write(xml_data)
-                os.replace(f"workspace/temp_{message_id}.xml", f"workspace/message_{message_id}.xml")
+                send_signal_to_redis(
+                    message_type="SIG",
+                    ticker=ticker,
+                    signal=f"URGENT_{tag}",
+                    prob=result['prob'],
+                    rationale=f"IMMEDIATE VOLATILITY: {percent_change:+.2f}%"
+                )
                 panic_cooldowns[ticker] = time.time()
 
             # B. Standard Buy (Buffered - The Digest)
-            # We DO NOT generate XML here. We just save it to memory.
             elif result['signal'] == "BUY_CANDIDATE":
                 report_entry = {
                     "ticker": ticker,
@@ -139,32 +196,15 @@ def run_bot_loop():
             if (time.time() - last_report_time > REPORT_INTERVAL) and (len(pending_reports) >= MIN_BATCH_SIZE):
                 print("   📧 [System] Compiling Hourly Briefing...")
                 summary_text = format_batch_report(pending_reports)
-                safe_summary = html.escape(summary_text)
                 
-                message_id = f"RPT-{random.randint(10000, 99999)}"
-                timestamp = datetime.datetime.now().isoformat()
-                
-                xml_data = f"""<?xml version="1.0" encoding="UTF-8"?>
-<ArcosMessage>
-    <Header>
-        <MessageID>{message_id}</MessageID>
-        <Sender>ARCOS_BRIEFING</Sender>
-        <Timestamp>{timestamp}</Timestamp>
-    </Header>
-    <Body>
-        <Ticker>MARKET_BRIEF</Ticker>
-        <Signal>INFO</Signal>
-        <Probability>1.0</Probability>
-        <Uncertainty>0.0</Uncertainty>
-        <SampleSize>{len(pending_reports)}</SampleSize>
-        <Rationale>{safe_summary}</Rationale>
-        <Signature>ARCOS_v3.5</Signature>
-    </Body>
-</ArcosMessage>
-"""
-                with open(f"workspace/temp_{message_id}.xml", "w", encoding="utf-8") as f:
-                    f.write(xml_data)
-                os.replace(f"workspace/temp_{message_id}.xml", f"workspace/message_{message_id}.xml")
+                send_signal_to_redis(
+                    message_type="RPT",
+                    ticker="MARKET_BRIEF",
+                    signal="INFO",
+                    prob=1.0,
+                    rationale=summary_text,
+                    tags=["BATCH"]
+                )
                 
                 pending_reports = []
                 last_report_time = time.time()

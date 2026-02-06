@@ -1,9 +1,11 @@
 use serde::Deserialize;
-use std::fs;
+use std::env;
 use std::thread;
 use std::time::Duration;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
+use redis::Commands;
+use warp::Filter;
 
 // --- CONFIGURATION ---
 const SMTP_USER: &str = "whogormagon@gmail.com"; 
@@ -11,29 +13,27 @@ const SMTP_PASS: &str = "sxfb ixti odqf arko";
 const ALERT_RECIPIENT: &str = "Goremagon@proton.me";
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 struct ArcosMessage {
     header: Header,
     body: Body,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 struct Header {
-    #[serde(rename = "MessageID")]
     message_id: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 struct Body {
     ticker: String,
     signal: String,
     probability: f64,
     uncertainty: f64,
-    sample_size: u32, // Simplified type to avoid parsing errors
+    sample_size: u32,
     rationale: String,
     signature: String,
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 fn send_email_alert(msg: &ArcosMessage) {
@@ -64,46 +64,79 @@ fn send_email_alert(msg: &ArcosMessage) {
     }
 }
 
-fn main() {
+// Separate function to run health check in a background task
+async fn run_health_check() {
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string()).parse::<u16>().unwrap();
+    let health = warp::path::end().map(|| "OK");
+    
+    println!("   ❤️ [System] Health Check running on port {}", port);
+    warp::serve(health).run(([0, 0, 0, 0], port)).await;
+}
+
+#[tokio::main]
+async fn main() {
     println!("---------------------------------------");
     println!("   ARCOS Maestro: Risk Engine Online   ");
     println!("---------------------------------------");
 
-    let mut last_id = String::new();
+    // Start Health Check logic in the background
+    tokio::spawn(run_health_check());
+
+    // Redis Connection
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let mut client = match redis::Client::open(redis_url.clone()) {
+        Ok(c) => {
+             println!("   🔌 [System] Connected to Redis at {}", redis_url);
+             c
+        },
+        Err(e) => {
+            println!("   ❌ [System] Failed to connect to Redis: {}", e);
+            return; 
+        }
+    };
+
+    let mut con = match client.get_connection() {
+        Ok(c) => c,
+        Err(e) => {
+            println!("   ❌ [System] Could not get Redis connection: {}", e);
+            return;
+        }
+    };
+
+    println!("   👂 [System] Listening for signals...");
 
     loop {
-        if let Ok(entries) = fs::read_dir("workspace") {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    let path_str = path.to_string_lossy();
-                    
-                    if path_str.ends_with(".xml") && path_str.contains("message_") {
-                        if let Ok(xml_content) = fs::read_to_string(&path) {
-                            
-                            match quick_xml::de::from_str::<ArcosMessage>(&xml_content) {
-                                Ok(message) => {
-                                    if message.header.message_id != last_id {
-                                        println!("\n🔔 NEW SIGNAL: {} ({})", message.body.ticker, message.body.signal);
-                                        
-                                        // LOGIC: Send if Buy Candidate OR Urgent OR Info Briefing
-                                        let sig = message.body.signal.as_str();
-                                        if (sig == "BUY_CANDIDATE" || sig == "INFO" || sig.starts_with("URGENT")) && message.body.probability > 0.60 {
-                                            send_email_alert(&message);
-                                        }
+        // BLPOP blocks until an item is available. Timeout 0 = wait forever.
+        // Returns tuple: (key, value)
+        let result: redis::RedisResult<(String, String)> = con.blpop("arcos_signals", 0.0);
 
-                                        last_id = message.header.message_id.clone();
-                                    }
-                                },
-                                Err(e) => {
-                                    println!("   ❌ [Error] Parser failed on {}: {:?}", path_str, e);
-                                }
-                            }
+        match result {
+            Ok((_key, json_str)) => {
+                match serde_json::from_str::<ArcosMessage>(&json_str) {
+                    Ok(message) => {
+                        println!("\n🔔 NEW SIGNAL: {} ({})", message.body.ticker, message.body.signal);
+                        
+                        let sig = message.body.signal.as_str();
+                        if (sig == "BUY_CANDIDATE" || sig == "INFO" || sig.starts_with("URGENT")) && message.body.probability > 0.60 {
+                            // Run email in blocking task to avoid dropping async runtime
+                            tokio::task::spawn_blocking(move || {
+                                send_email_alert(&message);
+                            });
                         }
+                    },
+                    Err(e) => {
+                         println!("   ❌ [Error] Parser failed: {:?} | Content: {}", e, json_str);
                     }
+                }
+            },
+            Err(e) => {
+                println!("   ⚠️ [Redis] Error during pop: {}. Reconnecting...", e);
+                thread::sleep(Duration::from_secs(5));
+                // Basic reconnect attempt
+                if let Ok(new_con) = client.get_connection() {
+                    con = new_con;
                 }
             }
         }
-        thread::sleep(Duration::from_secs(2));
     }
 }

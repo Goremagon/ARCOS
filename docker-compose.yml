@@ -4,11 +4,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.maestro
-    volumes:
-      # FIX: Use ${PWD} for explicit Windows path mapping
-      - ${PWD}/workspace:/app/workspace
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=8080
     depends_on:
       - agent
+      - redis
 
   # Service 2: The Python Worker (Data & ML)
   agent:
@@ -16,12 +17,15 @@ services:
       context: .
       dockerfile: Dockerfile.agent
     user: root 
-    volumes:
-      - ${PWD}/workspace:/app/workspace
     working_dir: /app
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=8080
     # NEW: Allow Agent to see Windows Localhost
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
 
   # Service 3: The Dashboard (UI)
   dashboard:
@@ -36,3 +40,9 @@ services:
     command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
+
+  # Service 4: Redis (Message Broker)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
