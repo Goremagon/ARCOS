@@ -319,7 +319,7 @@ async fn main() {
     loop {
         // BLPOP blocks until an item is available. Timeout 0 = wait forever.
         // Returns tuple: (key, value)
-        let result: redis::RedisResult<(String, String)> = con.blpop("arcos_signals", 0.0);
+        let result: redis::RedisResult<(String, String)> = con.blpop("arcos_signals", 0);
 
         match result {
             Ok((_key, json_str)) => {
