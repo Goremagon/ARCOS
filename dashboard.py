@@ -4,9 +4,11 @@ import sqlite3
 import plotly.graph_objects as go
 import time
 import os
+import json
 
 st.set_page_config(page_title="ARCOS War Room", layout="wide", page_icon="⚔️")
-DB_FILE = "/app/workspace/arcos_vault.db"
+DB_FILE = os.environ.get("ARCOS_DB_PATH", "/app/workspace/arcos_vault.db")
+WORKSPACE_ROOT = os.environ.get("ARCOS_WORKSPACE", "/app/workspace")
 
 # --- Auto Refresh (5s) ---
 if 'last_refresh' not in st.session_state:
@@ -88,3 +90,24 @@ if not df.empty:
 
 else:
     st.warning("Waiting for Neural Uplink...")
+
+st.subheader("🧾 Portfolio State")
+portfolio_path = os.path.join(WORKSPACE_ROOT, "portfolio_state.json")
+if os.path.exists(portfolio_path):
+    with open(portfolio_path, "r", encoding="utf-8") as f:
+        st.json(json.load(f))
+else:
+    st.info("Portfolio state not found.")
+
+st.subheader("📌 Audit Manifests")
+manifest_dir = os.path.join(WORKSPACE_ROOT, "official", "manifests")
+if os.path.isdir(manifest_dir):
+    manifest_files = sorted([f for f in os.listdir(manifest_dir) if f.endswith(".json")], reverse=True)[:10]
+    if manifest_files:
+        selected = st.selectbox("Select manifest", manifest_files)
+        with open(os.path.join(manifest_dir, selected), "r", encoding="utf-8") as f:
+            st.json(json.load(f))
+    else:
+        st.info("No manifests available.")
+else:
+    st.info("Manifest directory not found.")

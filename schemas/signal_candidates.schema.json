@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SignalCandidates",
+  "type": "object",
+  "required": ["type", "ticker", "generated_at", "candidates"],
+  "properties": {
+    "type": {"const": "SignalCandidates"},
+    "ticker": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "candidates": {"type": "array"}
+  }
+}

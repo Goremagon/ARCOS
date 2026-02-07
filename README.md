@@ -25,3 +25,15 @@
 2. Run the swarm:
    ```bash
    docker compose up --build
+   ```
+
+## 🔐 Configuration
+
+ARCOS relies on environment variables for secrets and runtime settings:
+
+- `SMTP_USER`, `SMTP_PASS`, `ALERT_RECIPIENT` (email alerts)
+- `ARCOS_WORKSPACE` (workspace root, default `workspace`)
+- `ARCOS_DB_PATH` (SQLite database path)
+- `ARCOS_MIN_SAMPLE_SIZE`, `ARCOS_MIN_WIN_RATE` (validity gates)
+- `ARCOS_MAX_POSITION_CAP`, `ARCOS_MAX_GROSS_EXPOSURE` (risk gates)
+- `ARCOS_EXECUTION_MODE` (`advisory` by default)
