@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NewsSnapshot",
+  "type": "object",
+  "required": ["type", "ticker", "as_of", "articles"],
+  "properties": {
+    "type": {"const": "NewsSnapshot"},
+    "ticker": {"type": "string"},
+    "as_of": {"type": "string"},
+    "articles": {"type": "array"}
+  }
+}

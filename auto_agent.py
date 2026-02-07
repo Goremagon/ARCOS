@@ -12,6 +12,10 @@ import signal_engine
 import social_scraper 
 import db_manager
 import discovery
+import feature_engine
+import news_reader
+import calibrator
+from artifacts import write_artifact
 
 # --- CONFIGURATION ---
 REPORT_INTERVAL = 3600  # Send summary every 60 minutes
@@ -42,7 +46,7 @@ def start_health_check():
     print(f"   ❤️ [System] Health Check running on port {port}")
     server.serve_forever()
 
-def send_signal_to_redis(message_type, ticker, signal, prob, rationale, tags=None):
+def send_signal_to_redis(message_type, ticker, signal, prob, rationale, sample_size=0, win_rate=0.0, tags=None):
     if not r:
         print("   ⚠️ [System] Redis unavailable, skipping signal send.")
         return
@@ -57,8 +61,9 @@ def send_signal_to_redis(message_type, ticker, signal, prob, rationale, tags=Non
             "ticker": ticker,
             "signal": signal,
             "probability": prob,
+            "win_rate": win_rate,
             "uncertainty": 0.0,
-            "sample_size": 0,
+            "sample_size": sample_size,
             "rationale": rationale,
             "signature": "ARCOS_v3.5_REDIS",
             "tags": tags or []
@@ -138,9 +143,67 @@ def run_bot_loop():
                 sentiment_score, social_vol = social_scraper.get_reddit_sentiment(ticker)
             except:
                 sentiment_score, social_vol = 0.0, 0
+
+            fundamentals = data_fetcher.fetch_fundamentals(ticker)
+            news_items = data_fetcher.fetch_news(ticker)
+            macro_snapshot = data_fetcher.fetch_macro_calendar()
+
+            market_snapshot = {
+                "type": "MarketSnapshot",
+                "ticker": ticker,
+                "as_of": datetime.datetime.utcnow().isoformat(),
+                "ohlcv": df.tail(200).to_dict(orient="records"),
+                "source": "yfinance",
+            }
+            market_path = write_artifact("raw", market_snapshot, f"market_{ticker}")
+
+            fundamental_snapshot = {
+                "type": "FundamentalSnapshot",
+                "ticker": ticker,
+                "as_of": datetime.datetime.utcnow().isoformat(),
+                "fundamentals": fundamentals,
+                "source": "yfinance",
+            }
+            fundamental_path = write_artifact("raw", fundamental_snapshot, f"fundamentals_{ticker}")
+
+            news_snapshot = {
+                "type": "NewsSnapshot",
+                "ticker": ticker,
+                "as_of": datetime.datetime.utcnow().isoformat(),
+                "articles": news_items,
+                "source": "yfinance",
+            }
+            news_path = write_artifact("raw", news_snapshot, f"news_{ticker}")
+
+            macro_path = write_artifact("raw", {
+                "type": "MacroSnapshot",
+                "as_of": datetime.datetime.utcnow().isoformat(),
+                "macro": macro_snapshot,
+            }, "macro")
+
+            flow_snapshot = {
+                "type": "FlowSnapshot",
+                "ticker": ticker,
+                "as_of": datetime.datetime.utcnow().isoformat(),
+                "flows": [],
+                "source": "placeholder",
+            }
+            flow_path = write_artifact("raw", flow_snapshot, f"flows_{ticker}")
+
+            feature_output = feature_engine.compute_features(ticker, df)
+            news_output = news_reader.score_headlines(
+                ticker, [item.get("title", "") for item in news_items if item.get("title")]
+            )
             
             # 4. Brain Analysis (LSTM + Logic)
             result = signal_engine.run_simulation(ticker, df, sentiment_score)
+            signal_candidates = {
+                "type": "SignalCandidates",
+                "ticker": ticker,
+                "generated_at": datetime.datetime.utcnow().isoformat(),
+                "candidates": [result],
+            }
+            signal_path = write_artifact("signals", signal_candidates, f"signals_{ticker}")
             
             # 5. Log to Vault
             social_note = f"Sent:{sentiment_score:.2f}"
@@ -177,7 +240,9 @@ def run_bot_loop():
                     ticker=ticker,
                     signal=f"URGENT_{tag}",
                     prob=result['prob'],
-                    rationale=f"IMMEDIATE VOLATILITY: {percent_change:+.2f}%"
+                    rationale=f"IMMEDIATE VOLATILITY: {percent_change:+.2f}%",
+                    sample_size=result['sample_size'],
+                    win_rate=result['win_rate'],
                 )
                 panic_cooldowns[ticker] = time.time()
 
@@ -192,6 +257,16 @@ def run_bot_loop():
                 pending_reports.append(report_entry)
                 print(f"   📝 [Batch] Added {ticker} to hourly report ({len(pending_reports)} pending)")
 
+                send_signal_to_redis(
+                    message_type="SIG",
+                    ticker=ticker,
+                    signal="BUY_CANDIDATE",
+                    prob=result['prob'],
+                    rationale=raw_rationale,
+                    sample_size=result['sample_size'],
+                    win_rate=result['win_rate'],
+                )
+
             # 7. Check Batch Timer (Hourly Email)
             if (time.time() - last_report_time > REPORT_INTERVAL) and (len(pending_reports) >= MIN_BATCH_SIZE):
                 print("   📧 [System] Compiling Hourly Briefing...")
@@ -203,6 +278,8 @@ def run_bot_loop():
                     signal="INFO",
                     prob=1.0,
                     rationale=summary_text,
+                    sample_size=len(pending_reports),
+                    win_rate=1.0,
                     tags=["BATCH"]
                 )
                 
@@ -213,6 +290,8 @@ def run_bot_loop():
             # 8. Speed Control
             # Wait 3 seconds to let the 3090 cool down slightly between LSTM training runs
             time.sleep(3) 
+
+            calibrator.compute_calibration()
 
         except Exception as e:
             print(f"❌ [Error] Loop failed: {e}")

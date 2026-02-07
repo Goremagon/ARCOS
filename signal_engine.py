@@ -30,6 +30,7 @@ def run_simulation(ticker, df, sentiment_score):
         "ticker": ticker,
         "signal": signal,
         "prob": final_prob,
+        "win_rate": max(0.0, min(1.0, final_prob)),
         "uncertainty": 0.0,
         "sample_size": len(df),
         "rationale": rationale

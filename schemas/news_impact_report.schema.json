@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NewsImpactReport",
+  "type": "object",
+  "required": ["type", "ticker", "generated_at", "articles"],
+  "properties": {
+    "type": {"const": "NewsImpactReport"},
+    "ticker": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "articles": {"type": "array"}
+  }
+}
