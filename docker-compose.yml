@@ -7,6 +7,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - PORT=8080
+      - ARCOS_WORKSPACE=/app/workspace
+      - ARCOS_DB_PATH=/app/workspace/arcos_vault.db
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - ALERT_RECIPIENT=${ALERT_RECIPIENT}
     depends_on:
       - agent
       - redis
@@ -21,6 +26,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - PORT=8080
+      - ARCOS_WORKSPACE=/app/workspace
+      - ARCOS_DB_PATH=/app/workspace/arcos_vault.db
     # NEW: Allow Agent to see Windows Localhost
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -40,6 +47,22 @@ services:
     command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
+    environment:
+      - ARCOS_WORKSPACE=/app/workspace
+      - ARCOS_DB_PATH=/app/workspace/arcos_vault.db
+
+  calibrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    command: python -u calibrator.py
+    volumes:
+      - ${PWD}/workspace:/app/workspace
+    environment:
+      - ARCOS_WORKSPACE=/app/workspace
+      - ARCOS_DB_PATH=/app/workspace/arcos_vault.db
+    depends_on:
+      - redis
 
   # Service 4: Redis (Message Broker)
   redis:
