@@ -2,6 +2,7 @@ import yfinance as yf
 import pandas as pd
 import datetime
 import time
+from typing import Dict, List
 
 def fetch_history(ticker):
     """
@@ -31,6 +32,52 @@ def fetch_history(ticker):
     except Exception as e:
         print(f"   ❌ [Data] Critical Failure for {ticker}: {e}")
         return pd.DataFrame()
+
+
+def fetch_fundamentals(ticker: str) -> Dict:
+    """
+    Fetches basic fundamentals where available.
+    """
+    try:
+        info = yf.Ticker(ticker).info
+        return {
+            "market_cap": info.get("marketCap"),
+            "pe_ratio": info.get("trailingPE"),
+            "forward_pe": info.get("forwardPE"),
+            "profit_margins": info.get("profitMargins"),
+            "revenue_growth": info.get("revenueGrowth"),
+        }
+    except Exception:
+        return {}
+
+
+def fetch_news(ticker: str) -> List[Dict]:
+    """
+    Fetches recent news metadata from yfinance.
+    """
+    try:
+        news_items = yf.Ticker(ticker).news or []
+        return [
+            {
+                "title": item.get("title"),
+                "publisher": item.get("publisher"),
+                "link": item.get("link"),
+                "provider_publish_time": item.get("providerPublishTime"),
+            }
+            for item in news_items
+        ]
+    except Exception:
+        return []
+
+
+def fetch_macro_calendar() -> Dict:
+    """
+    Placeholder for macro calendar.
+    """
+    return {
+        "events": [],
+        "source": "placeholder",
+    }
 
 if __name__ == "__main__":
     # Quick test to prove it works
