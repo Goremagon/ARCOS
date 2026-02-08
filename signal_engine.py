@@ -14,12 +14,11 @@ def run_simulation(ticker, df, sentiment_score):
 
     # 2. Fuse with Sentiment
     # Sentiment (-1 to 1) shifts probability by up to 20%
-    sentiment_impact = sentiment_score * 0.20
-    final_prob = price_prob + sentiment_impact
+    final_prob = max(0.0, min(1.0, price_prob + (sentiment_score * 0.20)))
     
     # 3. Generate Signal
     signal = "WAIT"
-    rationale = f"LSTM predicted {price_prob:.2f}. Sentiment ({sentiment_score:.2f}) adjusted it to {final_prob:.2f}."
+    rationale = f"LSTM predicted {price_prob:.2f}. Sentiment ({sentiment_score:.2f}) adjusted it to {final_prob:.2f} (clamped)."
     
     if final_prob > 0.70: # Higher threshold for LSTM
         signal = "BUY_CANDIDATE"

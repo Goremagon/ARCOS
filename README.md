@@ -1,39 +1,73 @@
-# ARCOS: AI Rule-Constrained Orchestration System
-### Prototype v0.1.0
+# 🦅 ARCOS Grandmaster v3.5
+### Sovereign Financial Intelligence System
 
-**ARCOS** is a multi-agent orchestration system that demonstrates "Decoupled Microservices." It uses a Python-based Agent Swarm to generate tasks and a Rust-based "Maestro" to validate, enforce rules, and execute those tasks.
-
----
-
-## 📂 Project Structure
-
-| File | Purpose |
-| :--- | :--- |
-| **`src/main.rs`** | The **Maestro**. Rust core that parses XML, validates agents, and executes file I/O. |
-| **`auto_agent.py`** | The **Agent**. Python script that simulates autonomous behavior (Producer, Validator, Speculus). |
-| **`schemas/arcos-core.xsd`** | The **Law**. XML Schema Definition that enforces strict data contracts. |
-| **`docker-compose.yml`** | The **Infrastructure**. Defines how to spin up the swarm in containers. |
-| **`workspace/`** | The **Output**. Shared folder where the Maestro writes the final files. |
+**ARCOS** is a local-first, privacy-focused investment intelligence platform. It combines autonomous Python agents ("The Swarm") with a strict Rust-based Risk Orchestrator ("The Maestro") to generate, validate, and audit financial signals.
 
 ---
 
-## 🚀 How to Run (The "All-In-One" Way)
+## 🚀 Quick Start
+1. **Prerequisites**: Install Docker Desktop.
+2. **Setup**: Create a `.env` file (see below).
+3. **Launch**: Run `docker compose up --build`.
+   - **War Room UI**: http://localhost:8501
 
-**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop)
+### .env Configuration
+Create a `.env` file in the project root:
+```env
+# Email & notifications
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+ALERT_RECIPIENT=alerts@yourdomain.com
 
-1. Open a terminal in this folder.
-2. Run the swarm:
-   ```bash
-   docker compose up --build
-   ```
+# Execution mode
+ARCOS_EXECUTION_MODE=advisory
 
-## 🔐 Configuration
+# Validation gates
+ARCOS_MIN_SAMPLE_SIZE=30
+ARCOS_MIN_WIN_RATE=0.65
 
-ARCOS relies on environment variables for secrets and runtime settings:
+# Risk limits
+ARCOS_MAX_POSITION_CAP=0.15
+ARCOS_MAX_GROSS_EXPOSURE=1.50
 
-- `SMTP_USER`, `SMTP_PASS`, `ALERT_RECIPIENT` (email alerts)
-- `ARCOS_WORKSPACE` (workspace root, default `workspace`)
-- `ARCOS_DB_PATH` (SQLite database path)
-- `ARCOS_MIN_SAMPLE_SIZE`, `ARCOS_MIN_WIN_RATE` (validity gates)
-- `ARCOS_MAX_POSITION_CAP`, `ARCOS_MAX_GROSS_EXPOSURE` (risk gates)
-- `ARCOS_EXECUTION_MODE` (`advisory` by default)
+# Paths (optional overrides)
+ARCOS_WORKSPACE=/app/workspace
+ARCOS_DB_PATH=/app/workspace/arcos_vault.db
+```
+
+---
+
+## 🧠 System Architecture (Overview)
+ARCOS is built on a **decoupled swarm + Maestro** pattern with strict data contracts and auditability.
+
+### Analyst Layer (Python Swarm)
+- **data_fetcher** → produces raw, normalized snapshots (market, fundamentals, news, flows, macro).
+- **feature_engine** → produces standardized features (momentum, trend, regime, cross-asset context).
+- **signal_engine** → generates candidate signals from bounded templates.
+- **news_reader** → scores and flags news impact (sentiment + hard flags).
+- **calibrator** → nightly evaluation and drift detection with guardrails.
+
+Each agent writes **typed, append-only artifacts** into the workspace. No agent can overwrite official outputs.
+
+### Maestro (Rust Orchestrator)
+- Validates input contracts and enforces **hard-rule gates**.
+- Runs statistical validity checks (sample size, win-rate thresholds).
+- Applies deterministic risk rules (position caps, concentration, turnover, volatility limits).
+- Emits **official recommendations** and **audit manifests** with hashes.
+
+### Outputs
+- **Daily Briefing**: ranked recommendations + rationale + audit references.
+- **War Room UI**: live signals, portfolio exposure, and manifest browsing.
+
+---
+
+## 🖥️ Mission Control
+- **Live Feed**: Monitor real-time AI-generated signals.
+- **Audit Manifests**: Verify signal "Chain of Custody" using SHA256 hashes.
+- **Portfolio**: Real-time tracking of simulated/live exposure and risk.
+
+## 🛠 Maintenance
+- **Memory Wipe**: Delete `workspace/arcos_vault.db` to reset the neural state.
+- **Watchlist**: Auto-refreshes every 30 minutes via `discovery.py`.
+
+---
