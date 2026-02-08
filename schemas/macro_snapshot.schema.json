@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MacroSnapshot",
+  "type": "object",
+  "required": ["type", "as_of", "macro"],
+  "properties": {
+    "type": {"const": "MacroSnapshot"},
+    "as_of": {"type": "string"},
+    "macro": {"type": "object"}
+  }
+}

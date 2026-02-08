@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CalibrationState",
+  "type": "object",
+  "required": ["type", "generated_at", "signal_stats"],
+  "properties": {
+    "type": {"const": "CalibrationState"},
+    "generated_at": {"type": "string"},
+    "signal_stats": {"type": "object"},
+    "drift_alerts": {"type": "array"}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FlowSnapshot",
+  "type": "object",
+  "required": ["type", "ticker", "as_of", "flows"],
+  "properties": {
+    "type": {"const": "FlowSnapshot"},
+    "ticker": {"type": "string"},
+    "as_of": {"type": "string"},
+    "flows": {"type": "array"}
+  }
+}

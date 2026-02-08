@@ -2,10 +2,9 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Added 'matplotlib' to the list
-RUN pip install pandas numpy yfinance scipy scikit-learn streamlit plotly vaderSentiment feedparser requests matplotlib
-RUN pip install pandas numpy yfinance scipy scikit-learn streamlit plotly vaderSentiment feedparser requests matplotlib torch redis
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py .
+COPY *.py ./
 
 CMD ["python", "-u", "auto_agent.py"]

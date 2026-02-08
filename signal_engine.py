@@ -15,7 +15,7 @@ def run_simulation(ticker, df, sentiment_score):
     # 2. Fuse with Sentiment
     # Sentiment (-1 to 1) shifts probability by up to 20%
     sentiment_impact = sentiment_score * 0.20
-    final_prob = price_prob + sentiment_impact
+    final_prob = max(0.0, min(1.0, price_prob + sentiment_impact))
     
     # 3. Generate Signal
     signal = "WAIT"
@@ -30,6 +30,7 @@ def run_simulation(ticker, df, sentiment_score):
         "ticker": ticker,
         "signal": signal,
         "prob": final_prob,
+        "win_rate": max(0.0, min(1.0, final_prob)),
         "uncertainty": 0.0,
         "sample_size": len(df),
         "rationale": rationale

@@ -5,7 +5,7 @@ import time
 
 # CRITICAL FIX: Use Absolute Docker Path
 # The Dockerfile sets WORKDIR to /app, and we mount to /app/workspace
-DB_FILE = "/app/workspace/arcos_vault.db"
+DB_FILE = os.environ.get("ARCOS_DB_PATH", "/app/workspace/arcos_vault.db")
 
 def init_db():
     """Creates the vault in Standard Mode."""
