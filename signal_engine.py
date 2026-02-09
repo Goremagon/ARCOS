@@ -1,5 +1,17 @@
+from functools import lru_cache
+
 import pandas as pd
+import yfinance as yf
+
 import lstm_brain # <--- NEW IMPORT
+
+@lru_cache(maxsize=512)
+def get_company_name(ticker):
+    try:
+        info = yf.Ticker(ticker).info
+        return info.get("longName") or info.get("shortName") or ticker
+    except Exception:
+        return ticker
 
 def run_simulation(ticker, df, sentiment_score):
     """
@@ -28,6 +40,7 @@ def run_simulation(ticker, df, sentiment_score):
     return {
         "ticker": ticker,
         "signal": signal,
+        "asset_name": get_company_name(ticker),
         "prob": final_prob,
         "win_rate": max(0.0, min(1.0, final_prob)),
         "uncertainty": 0.0,

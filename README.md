@@ -62,7 +62,8 @@ Each agent writes **typed, append-only artifacts** into the workspace. No agent 
 ---
 
 ## 🖥️ Mission Control
-- **Live Feed**: Monitor real-time AI-generated signals.
+- **Live Feed**: Monitor real-time AI-generated signals with asset name resolution.
+- **Editable Settings**: Update execution mode and gate thresholds directly from the Systems tab.
 - **Audit Manifests**: Verify signal "Chain of Custody" using SHA256 hashes.
 - **Portfolio**: Real-time tracking of simulated/live exposure and risk.
 
