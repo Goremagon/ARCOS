@@ -11,6 +11,34 @@ import streamlit as st
 load_dotenv()
 
 st.set_page_config(page_title="ARCOS War Room", layout="wide", page_icon="⚔️")
+
+st.markdown(
+    """
+<style>
+:root {
+    --arcos-bg: #121417;
+    --arcos-panel: #1b1f24;
+    --arcos-gold: #d4af37;
+    --arcos-text: #e6e6e6;
+}
+html, body, [class*="stApp"] {
+    background-color: var(--arcos-bg);
+    color: var(--arcos-text);
+}
+[data-testid="stSidebar"] {
+    background-color: var(--arcos-panel);
+}
+h1, h2, h3, h4, h5 {
+    color: var(--arcos-gold);
+}
+.stMetric label, .stMetric div {
+    color: var(--arcos-text);
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 DB_FILE = os.environ.get("ARCOS_DB_PATH", "/app/workspace/arcos_vault.db")
 WORKSPACE_ROOT = os.environ.get("ARCOS_WORKSPACE", "/app/workspace")
 
@@ -51,10 +79,8 @@ def load_portfolio_state():
         return json.load(f)
 
 
-def format_asset_label(asset_name, ticker):
-    if asset_name and ticker:
-        return f"{asset_name} ({ticker})"
-    return asset_name or ticker or "Unknown"
+def env_value(key):
+    return os.environ.get(key, "")
 
 
 def compute_position_value(position):
@@ -65,59 +91,50 @@ def compute_position_value(position):
     return price * size
 
 
-def env_value(key):
-    return os.environ.get(key, "")
-
-
 df = get_data()
 
-st.title("🦅 ARCOS: Sovereign Intelligence")
+st.title("🦅 ARCOS: Sovereign Intelligence Briefing")
 
-briefing_tab, portfolio_tab, systems_tab = st.tabs(["📡 Briefing", "💼 Portfolio", "⚙️ Systems"])
+briefing_tab, portfolio_tab, systems_tab = st.tabs(
+    ["📡 Intelligence Briefing", "💼 Asset Ledger", "🔧 System Tuning"]
+)
 
 with briefing_tab:
-    st.subheader("🦅 ARCOS Intelligence Briefing")
     if df.empty:
         st.warning("Waiting for Neural Uplink...")
     else:
-        last_sig = df.iloc[0]
-        last_state = "running"
-        if "BUY" in last_sig["signal"]:
-            last_state = "complete"
-        elif "SELL" in last_sig["signal"]:
-            last_state = "error"
-
-        asset_label = format_asset_label(last_sig.get("asset_name"), last_sig.get("ticker"))
-        with st.status(f"Last Action: {last_sig['signal']}", state=last_state):
-            st.write(f"Asset: {asset_label}")
-            st.write(f"Confidence: {last_sig['final_prob']:.1%}")
-
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df["timestamp"],
-            y=df["price_close"],
-            mode="lines",
-            name="Price",
-            line=dict(color="#2E86C1", width=2),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df["timestamp"],
+                y=df["price_close"],
+                mode="lines",
+                name="Price",
+                line=dict(color="#d4af37", width=2),
+            )
+        )
 
         buys = df[df["signal"] == "BUY_CANDIDATE"]
-        fig.add_trace(go.Scatter(
-            x=buys["timestamp"],
-            y=buys["price_close"],
-            mode="markers",
-            name="Neural Buy",
-            marker=dict(symbol="triangle-up", size=15, color="#00FF00"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=buys["timestamp"],
+                y=buys["price_close"],
+                mode="markers",
+                name="Neural Buy",
+                marker=dict(symbol="triangle-up", size=15, color="#2ecc71"),
+            )
+        )
 
         sells = df[df["signal"] == "SELL_AVOID"]
-        fig.add_trace(go.Scatter(
-            x=sells["timestamp"],
-            y=sells["price_close"],
-            mode="markers",
-            name="Sell/Avoid",
-            marker=dict(symbol="triangle-down", size=12, color="#FF0000"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=sells["timestamp"],
+                y=sells["price_close"],
+                mode="markers",
+                name="Sell/Avoid",
+                marker=dict(symbol="triangle-down", size=12, color="#e74c3c"),
+            )
+        )
 
         fig.update_layout(
             title="Live Neural Execution Feed",
@@ -130,15 +147,13 @@ with briefing_tab:
         st.plotly_chart(fig, use_container_width=True)
 
         df_display = df.copy()
-        df_display["Asset"] = df_display.apply(
-            lambda row: format_asset_label(row.get("asset_name"), row.get("ticker")),
-            axis=1,
-        )
+        df_display["Asset"] = df_display["asset_name"].fillna("Unknown")
+        df_display["Ticker"] = df_display["ticker"].fillna("-")
         df_display["Confidence"] = df_display["final_prob"]
         df_display["Rationale"] = df_display["rationale"].apply(clean_rationale)
 
         st.dataframe(
-            df_display[["Asset", "signal", "Confidence", "Rationale"]].rename(
+            df_display[["Asset", "Ticker", "signal", "Confidence", "Rationale"]].rename(
                 columns={"signal": "Signal"}
             ),
             hide_index=True,
@@ -152,7 +167,7 @@ with briefing_tab:
         )
 
 with portfolio_tab:
-    st.subheader("💼 Portfolio Overview")
+    st.subheader("💼 Asset Ledger")
     portfolio_state = load_portfolio_state()
     if portfolio_state is None:
         st.info("Portfolio state not found.")
@@ -164,29 +179,27 @@ with portfolio_tab:
             as_of = portfolio_state.get("as_of", "Unknown")
             st.caption(f"As of: {as_of}")
 
-        cash = portfolio_state.get("cash", 0.0)
-        positions = portfolio_state.get("positions", [])
-        total_value = cash + sum(compute_position_value(p) for p in positions)
-
         exposure = portfolio_state.get("exposure", {})
+        gross_exposure = exposure.get("gross", 0.0)
         net_exposure = exposure.get("net", 0.0)
-        daily_pnl = portfolio_state.get("daily_pnl", 0.0)
+        positions = portfolio_state.get("positions", [])
 
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Value", f"${total_value:,.2f}")
+        col1.metric("Gross Exposure", f"${gross_exposure:,.2f}")
         col2.metric("Net Exposure", f"${net_exposure:,.2f}")
-        col3.metric("Daily PnL", f"${daily_pnl:,.2f}")
+        col3.metric("Position Count", str(len(positions)))
 
         if positions:
             rows = []
             for position in positions:
-                asset_label = format_asset_label(
-                    position.get("asset_name"), position.get("ticker")
-                )
                 rows.append(
                     {
-                        "Asset": asset_label,
-                        "Size": position.get("size") or position.get("quantity") or 0.0,
+                        "Asset": position.get("asset_name")
+                        or position.get("ticker")
+                        or "Unknown",
+                        "Size": position.get("size")
+                        or position.get("quantity")
+                        or 0.0,
                         "Entry Price": position.get("entry_price", 0.0),
                         "Current Value": compute_position_value(position),
                     }
@@ -196,7 +209,7 @@ with portfolio_tab:
             st.info("No active positions.")
 
 with systems_tab:
-    st.subheader("⚙️ System Parameters")
+    st.subheader("🔧 System Tuning")
     current_values = {key: env_value(key) for key in SETTINGS_KEYS}
 
     with st.form("settings_form"):
@@ -216,14 +229,16 @@ with systems_tab:
             ),
         )
 
-        submitted = st.form_submit_button("Save Configuration")
+        submitted = st.form_submit_button("Apply Configuration")
 
     if submitted:
         env_path = os.path.join(os.getcwd(), ".env")
         set_key(env_path, "ARCOS_MIN_WIN_RATE", min_win_rate)
         set_key(env_path, "ARCOS_MIN_SAMPLE_SIZE", min_sample_size)
         set_key(env_path, "ARCOS_EXECUTION_MODE", execution_mode)
-        st.success("✅ System Parameters Updated. Swarm restarting...")
+        st.success(
+            "✅ Settings saved to .env. Please run 'docker compose restart' to apply changes to the swarm."
+        )
 
     st.caption("Current Settings")
     settings_rows = [

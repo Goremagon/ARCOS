@@ -3,7 +3,16 @@ from functools import lru_cache
 import pandas as pd
 import yfinance as yf
 
-import lstm_brain # <--- NEW IMPORT
+import lstm_brain  # <--- NEW IMPORT
+
+
+@lru_cache(maxsize=128)
+def get_asset_name(ticker):
+    try:
+        return yf.Ticker(ticker).info.get("longName", ticker)
+    except Exception:
+        return ticker
+
 
 @lru_cache(maxsize=512)
 def get_company_name(ticker):
@@ -26,24 +35,28 @@ def run_simulation(ticker, df, sentiment_score):
 
     # 2. Fuse with Sentiment
     # Sentiment (-1 to 1) shifts probability by up to 20%
-    final_prob = max(0.0, min(1.0, price_prob + (sentiment_score * 0.20)))
-    
+    sentiment_impact = sentiment_score * 0.20
+    final_prob = max(0.0, min(1.0, price_prob + sentiment_impact))
+
     # 3. Generate Signal
     signal = "WAIT"
-    rationale = f"LSTM predicted {price_prob:.2f}. Sentiment ({sentiment_score:.2f}) adjusted it to {final_prob:.2f} (clamped)."
-    
-    if final_prob > 0.70: # Higher threshold for LSTM
+    rationale = (
+        f"LSTM predicted {price_prob:.2f}. Sentiment ({sentiment_score:.2f}) "
+        f"adjusted it to {final_prob:.2f} (clamped)."
+    )
+
+    if final_prob > 0.70:  # Higher threshold for LSTM
         signal = "BUY_CANDIDATE"
     elif final_prob < 0.30:
         signal = "SELL_AVOID"
-        
+
     return {
         "ticker": ticker,
         "signal": signal,
-        "asset_name": get_company_name(ticker),
+        "asset_name": get_asset_name(ticker),
         "prob": final_prob,
         "win_rate": max(0.0, min(1.0, final_prob)),
         "uncertainty": 0.0,
         "sample_size": len(df),
-        "rationale": rationale
+        "rationale": rationale,
     }

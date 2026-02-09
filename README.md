@@ -1,4 +1,4 @@
-# 🦅 ARCOS Grandmaster v3.5
+# 🦅 ARCOS Grandmaster v4.0
 ### Sovereign Financial Intelligence System
 
 **ARCOS** is a local-first, privacy-focused investment intelligence platform. It combines autonomous Python agents ("The Swarm") with a strict Rust-based Risk Orchestrator ("The Maestro") to generate, validate, and audit financial signals.
@@ -62,8 +62,9 @@ Each agent writes **typed, append-only artifacts** into the workspace. No agent 
 ---
 
 ## 🖥️ Mission Control
-- **Live Feed**: Monitor real-time AI-generated signals with asset name resolution.
-- **Editable Settings**: Update execution mode and gate thresholds directly from the Systems tab.
+- **Intelligence Briefing**: Monitor live AI-generated signals with full asset names, confidence scores, and clean rationale text.
+- **Asset Ledger**: Review gross/net exposure and current holdings in a streamlined table view.
+- **System Tuning**: Adjust execution mode and validation gates directly in the UI. Click **Apply Configuration** to persist changes to `.env`, then run `docker compose restart` to apply changes to the swarm.
 - **Audit Manifests**: Verify signal "Chain of Custody" using SHA256 hashes.
 - **Portfolio**: Real-time tracking of simulated/live exposure and risk.
 
