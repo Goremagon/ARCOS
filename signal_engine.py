@@ -14,14 +14,6 @@ def get_asset_name(ticker):
         return ticker
 
 
-@lru_cache(maxsize=512)
-def get_company_name(ticker):
-    try:
-        info = yf.Ticker(ticker).info
-        return info.get("longName") or info.get("shortName") or ticker
-    except Exception:
-        return ticker
-
 def run_simulation(ticker, df, sentiment_score):
     """
     Hybrid Decision Engine: LSTM (Price Patterns) + LLM (Sentiment)
