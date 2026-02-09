@@ -12,3 +12,5 @@ redis = "0.23"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3" 
 # Using warp for simple health check endpoint
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["std"] }
