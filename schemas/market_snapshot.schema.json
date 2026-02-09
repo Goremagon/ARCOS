@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketSnapshot",
+  "type": "object",
+  "required": ["type", "ticker", "as_of", "ohlcv"],
+  "properties": {
+    "type": {"const": "MarketSnapshot"},
+    "ticker": {"type": "string"},
+    "as_of": {"type": "string"},
+    "ohlcv": {"type": "array"}
+  }
+}
